@@ -55,6 +55,35 @@ sudo umount $DEVICE_NAME*
 sudo dd bs=4M status=progress if="$IMAGE_PATH" of="$DEVICE_NAME"
 sudo sync
 
-rm -r "$TMP_EXTRACTION_FOLDER"
+# Configure WIFI and SSH for flashed image
+BOOT_MOUNT_PATH="/media/pi_boot"
+sudo mkdir $BOOT_MOUNT_PATH
 
-echo "Done"
+sudo fdisk -l | grep "$DEVICE_NAME"
+read -r -p "Please enter boot device: " BOOT_DEVICE
+
+sudo mount -t vfat /dev/"$BOOT_DEVICE" "$BOOT_MOUNT_PATH"
+
+touch "$BOOT_MOUNT_PATH"/ssh
+
+cat <<EOM > "$BOOT_MOUNT_PATH"/wpa_supplicant.conf
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=GB
+
+network={
+ ssid="$WIFI_SSID"
+ psk="$WIFI_PASSWORD"
+ priority=1
+ id_str="$ROUTER_NAME"
+}
+EOM
+
+# Cleanup temporary files
+sudo sync
+# shellcheck disable=SC2086
+sudo umount $DEVICE_NAME*
+rm -r "$TMP_EXTRACTION_FOLDER"
+rm -r "$BOOT_MOUNT_PATH"
+
+echo "SD Flash complete"
