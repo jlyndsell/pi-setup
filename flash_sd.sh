@@ -6,6 +6,11 @@ while [[ $# -gt 0 ]]
 do
 key="$1"
 case $key in
+    -d|--device)
+    DEVICE_PATH="$2"
+    shift
+    shift
+    ;;
     -i|--image)
     COMPRESSED_IMAGE_PATH="$2"
     shift
@@ -21,50 +26,48 @@ case $key in
 esac
 done
 
-
-unzip "$COMPRESSED_IMAGE_PATH" -d $TMP_EXTRACTION_FOLDER
-
-# Ensure only the image is extracted
-if [ "$(find $TMP_EXTRACTION_FOLDER -type f | wc -l)" != "1" ]; then
-  echo "Extraction resulted in more than 1 file. Exiting"
-  exit 1
+if [ -z "$DEVICE_PATH" ]; then
+  echo "Error: Missing device specified"
+  exit 1;
 fi
 
-IMAGE_PATH="extracted_image/$(ls extracted_image)"
+if [ -z "$COMPRESSED_IMAGE_PATH" ]; then
+  echo "Error: Missing image specified"
+  exit 1;
+fi
 
-read -r -p "Please ensure SD card is NOT inserted. Press any key to continue"
-WITHOUT_SD_CARD=$(ls -b /dev/)
+DISK_SIZE="$(blockdev --getsize64 "$DEVICE_PATH" | numfmt --to=iec-i --suffix=B)"
 
-#ehco "Please insert SD card. Press any key to continue"
-read -r -p "Please insert SD card. Press any key to continue"
-WITH_SD_CARD=$(ls -b /dev/)
-
-diff <(echo "$WITHOUT_SD_CARD") <(echo "$WITH_SD_CARD")
-
-read -r -p "Please enter device name: " DEVICE_NAME
-DEVICE_NAME="/dev/${DEVICE_NAME}"
-DISK_SIZE="$(blockdev --getsize64 "$DEVICE_NAME" | numfmt --to=iec-i --suffix=B)"
-
-read -r -p "Are you sure you want to format disk: $DEVICE_NAME ($DISK_SIZE) Press y to continue: " RESPONSE
+read -r -p "Are you sure you want to format disk: $DEVICE_PATH ($DISK_SIZE) Press y to continue: " RESPONSE
 if [ "$RESPONSE" != "y" ]; then
   echo "Exiting"
   exit 1
 fi
 
-# shellcheck disable=SC2086
-umount $DEVICE_NAME*
+unzip "$COMPRESSED_IMAGE_PATH" -d $TMP_EXTRACTION_FOLDER
 
-dd bs=4M status=progress if="$IMAGE_PATH" of="$DEVICE_NAME"
+# Ensure only the image is extracted
+if [ "$(find $TMP_EXTRACTION_FOLDER -type f | wc -l)" != "1" ]; then
+  echo "Error: extraction resulted in more than 1 file. Exiting"
+  exit 1
+fi
+
+IMAGE_PATH="$TMP_EXTRACTION_FOLDER/$(ls $TMP_EXTRACTION_FOLDER)"
+
+# shellcheck disable=SC2086
+umount $DEVICE_PATH*
+
+dd bs=4M status=progress if="$IMAGE_PATH" of="$DEVICE_PATH"
 sync
 
 # Configure WIFI and SSH for flashed image
 BOOT_MOUNT_PATH="/media/pi_boot"
-mkdir $BOOT_MOUNT_PATH
+mkdir -p $BOOT_MOUNT_PATH
 
-fdisk -l | grep "$DEVICE_NAME"
+fdisk -l | grep "$DEVICE_PATH"
 read -r -p "Please enter boot device: " BOOT_DEVICE
 
-mount -t vfat /dev/"$BOOT_DEVICE" "$BOOT_MOUNT_PATH"
+mount -t vfat "$BOOT_DEVICE" "$BOOT_MOUNT_PATH"
 
 touch "$BOOT_MOUNT_PATH"/ssh
 
@@ -84,7 +87,7 @@ EOM
 # Cleanup temporary files
 sync
 # shellcheck disable=SC2086
-umount $DEVICE_NAME*
+umount $DEVICE_PATH*
 rm -r "$TMP_EXTRACTION_FOLDER"
 rm -r "$BOOT_MOUNT_PATH"
 
