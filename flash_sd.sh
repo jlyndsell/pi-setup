@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 TMP_EXTRACTION_FOLDER="extracted_image/"
 
 while [[ $# -gt 0 ]]
@@ -41,7 +43,7 @@ diff <(echo "$WITHOUT_SD_CARD") <(echo "$WITH_SD_CARD")
 
 read -r -p "Please enter device name: " DEVICE_NAME
 DEVICE_NAME="/dev/${DEVICE_NAME}"
-DISK_SIZE="$(sudo blockdev --getsize64 "$DEVICE_NAME" | numfmt --to=iec-i --suffix=B)"
+DISK_SIZE="$(blockdev --getsize64 "$DEVICE_NAME" | numfmt --to=iec-i --suffix=B)"
 
 read -r -p "Are you sure you want to format disk: $DEVICE_NAME ($DISK_SIZE) Press y to continue: " RESPONSE
 if [ "$RESPONSE" != "y" ]; then
@@ -50,19 +52,19 @@ if [ "$RESPONSE" != "y" ]; then
 fi
 
 # shellcheck disable=SC2086
-sudo umount $DEVICE_NAME*
+umount $DEVICE_NAME*
 
-sudo dd bs=4M status=progress if="$IMAGE_PATH" of="$DEVICE_NAME"
-sudo sync
+dd bs=4M status=progress if="$IMAGE_PATH" of="$DEVICE_NAME"
+sync
 
 # Configure WIFI and SSH for flashed image
 BOOT_MOUNT_PATH="/media/pi_boot"
-sudo mkdir $BOOT_MOUNT_PATH
+mkdir $BOOT_MOUNT_PATH
 
-sudo fdisk -l | grep "$DEVICE_NAME"
+fdisk -l | grep "$DEVICE_NAME"
 read -r -p "Please enter boot device: " BOOT_DEVICE
 
-sudo mount -t vfat /dev/"$BOOT_DEVICE" "$BOOT_MOUNT_PATH"
+mount -t vfat /dev/"$BOOT_DEVICE" "$BOOT_MOUNT_PATH"
 
 touch "$BOOT_MOUNT_PATH"/ssh
 
@@ -80,9 +82,9 @@ network={
 EOM
 
 # Cleanup temporary files
-sudo sync
+sync
 # shellcheck disable=SC2086
-sudo umount $DEVICE_NAME*
+umount $DEVICE_NAME*
 rm -r "$TMP_EXTRACTION_FOLDER"
 rm -r "$BOOT_MOUNT_PATH"
 
