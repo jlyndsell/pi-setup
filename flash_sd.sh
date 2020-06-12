@@ -75,7 +75,7 @@ network={
  ssid="$WIFI_SSID"
  psk="$WIFI_PASSWORD"
  priority=1
- id_str="$ROUTER_NAME"
+ id_str="default"
 }
 EOM
 
